@@ -307,11 +307,30 @@ bool byteToBool( uint8_t toconvert, int bit){
 void extractTrameM(uint8_t ltrame[]){
   //77
 
-  hackeron.ph.Value = byteToDouble(ltrame[2],ltrame[3]) / 100.0;
-  hackeron.redox.Value = byteToDouble(ltrame[4],ltrame[5]);
-  hackeron.temp.Value = byteToDouble(ltrame[6],ltrame[7]) / 10.0 ;
+  //Fix pour les piques de mesures a ne pas prendre en compte
+  float ph = byteToDouble(ltrame[2],ltrame[3]) / 100.0;
+  if ((ph <= 9.5 ) && ( ph >= 3.5)){
+    hackeron.ph.Value = ph;
+  }
 
-  hackeron.sel.Value = byteToDouble(ltrame[8],ltrame[9]) / 10.0;
+  //Fix pour les piques de mesures a ne pas prendre en compte
+  float redox = byteToDouble(ltrame[4],ltrame[5]);
+  if (( redox <= 1000) && (redox >= 350)){
+    hackeron.redox.Value = redox;
+  }
+
+  //Fix pour les piques de mesures a ne pas prendre en compte
+  float temp = byteToDouble(ltrame[6],ltrame[7]) / 10.0 ;
+  if (( temp <= 50 ) && (temp >= 0)){
+    hackeron.temp.Value = temp;
+  }
+
+  //Fix pour les piques de mesures a ne pas prendre en compte
+  float sel = byteToDouble(ltrame[8],ltrame[9]) / 10.0;
+  if (( sel <= 10) && (sel >= 0)){
+    hackeron.sel.Value = sel;
+  }
+
   hackeron.alarme = ltrame[10];
   hackeron.warning = ltrame[11] & 0xF;
   hackeron.alarmRdx = ltrame[11] >> 4;
@@ -725,10 +744,19 @@ void cb_loopHaIntegration(){
   wifiStrength.setValue(WiFi.RSSI());
   hackeronIp.setValue(WiFi.localIP().toString().c_str());
 
-  temp.setValue(hackeron.temp.Value,2);
-  redox.setValue(hackeron.redox.Value,2);
-  ph.setValue(hackeron.ph.Value);
-  sel.setValue(hackeron.sel.Value,2);
+  //Fix pour les piques de mesures a ne pas prendre en compte
+  if ((hackeron.temp.Value <= 50) && (hackeron.temp.Value >= 0)){
+    temp.setValue(hackeron.temp.Value,2);
+  }
+  if ((hackeron.redox.Value <= 1000) && (hackeron.redox.Value >= 0)){
+    redox.setValue(hackeron.redox.Value,2);
+  }
+  if ((hackeron.ph.Value <= 9.5) && (hackeron.ph.Value >= 3.5)){
+    ph.setValue(hackeron.ph.Value);
+  }
+  if ((hackeron.sel.Value <= 10) && (hackeron.sel.Value >= 0)){
+    sel.setValue(hackeron.sel.Value,2);
+  }
   alarme.setValue((float)hackeron.alarme,0);
   alarmeRdx.setValue((float)hackeron.alarmRdx,0);
   warning.setValue((float)hackeron.warning,0);
