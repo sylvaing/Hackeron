@@ -96,6 +96,9 @@ HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
 HASensor alarmeElx("pool_alarmeElx");
 
 HABinarySensor pompeForcees("pool_pompeForcees",false);
+HABinarySensor voletForce("pool_voletForce", false);
+HABinarySensor voletActif("pool_voletActif", true);
+
 
 HASensor elx("pool_elx_value");
 
@@ -146,7 +149,8 @@ struct HackeronHw {
 	bool CapteurSel;
 	bool FlowSwitch;
 	bool PompesForcees;
-
+  bool VoletActif;
+  bool VoletForce;
   uint8_t DureeBoost;
   bool BoostActif;
 
@@ -372,6 +376,9 @@ void extractTrameA(uint8_t ltrame[]){
   }else{
     hackeron.BoostActif = false;
   }
+
+  hackeron.VoletActif = byteToBool(trame[10],4);
+  hackeron.VoletForce = byteToBool(trame[10],3);
 
 }
 
@@ -779,6 +786,8 @@ void cb_loopHaIntegration(){
   phConsigneNumber.setValue(hackeron.ph.Consigne);
   poolProdElx.setValue(hackeron.elx.Value); //(value = consigne)
  
+  voletActif.setState(hackeron.VoletActif);
+  voletForce.setState(hackeron.VoletActif);
 
 }
 
@@ -947,6 +956,9 @@ void setupHaIntegration(){
   boostFor2h.onStateChanged(onStateChangedBoost2H);
 
   bluetoothConnected.setName("Bluetooth Status");
+
+  voletActif.setName("Volet Actif");
+  voletForce.setName("Volet Force");
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
