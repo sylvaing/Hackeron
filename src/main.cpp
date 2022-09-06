@@ -151,6 +151,7 @@ struct HackeronHw {
 	bool PompesForcees;
   bool VoletActif;
   bool VoletForce;
+  uint8_t rawField10;
   uint8_t DureeBoost;
   bool BoostActif;
 
@@ -379,6 +380,7 @@ void extractTrameA(uint8_t ltrame[]){
 
   hackeron.VoletActif = byteToBool(trame[10],4);
   hackeron.VoletForce = byteToBool(trame[10],3);
+  hackeron.rawField10 = trame[10];
 
 }
 
