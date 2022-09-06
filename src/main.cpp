@@ -97,7 +97,7 @@ HASensor alarmeElx("pool_alarmeElx");
 
 HABinarySensor pompeForcees("pool_pompeForcees",false);
 HABinarySensor voletForce("pool_voletForce", false);
-HABinarySensor voletActif("pool_voletActif", true);
+HABinarySensor voletActif("pool_voletActif", false);
 
 
 HASensor elx("pool_elx_value");
@@ -107,6 +107,7 @@ HANumber phConsigneNumber("pool_ph_consigne_number");
 HANumber poolProdElx("pool_prod_elx_number");
 
 HASwitch boostFor2h("pool_boost_2h", false);
+HASwitch volet("pool_volet", false);
 
 HABinarySensor bluetoothConnected("pool_bluetooth_connected","connectivity",false);
 
@@ -151,7 +152,7 @@ struct HackeronHw {
 	bool PompesForcees;
   bool VoletActif;
   bool VoletForce;
-  uint8_t rawField10;
+  uint8_t rawFieldA10;
   uint8_t DureeBoost;
   bool BoostActif;
 
@@ -309,6 +310,16 @@ bool byteToBool( uint8_t toconvert, int bit){
   return true;
 }
 
+uint8_t byteSet( boolean val, int position, uint8_t cible){
+
+  uint8_t b = 1;
+  b = (uint8_t) (b << position);
+  uint8_t b2 = (uint8_t) (~b);
+  cible = ((!val) ? ((uint8_t)(cible & b2)) : ((uint8_t)(cible | b)));
+
+  return cible;
+}
+
 void extractTrameM(uint8_t ltrame[]){
   //77
 
@@ -380,7 +391,7 @@ void extractTrameA(uint8_t ltrame[]){
 
   hackeron.VoletActif = byteToBool(trame[10],4);
   hackeron.VoletForce = byteToBool(trame[10],3);
-  hackeron.rawField10 = trame[10];
+  hackeron.rawFieldA10 = trame[10];
 
 }
 
@@ -656,6 +667,29 @@ void commandeBoost(uint16_t consigne){
 
 }
 
+void commandeVolet( bool state){
+    // commande de type trame A=65
+  telnet.println("Dans la commande Volet");
+  telnet.print("etat demande Volet : ");
+  telnet.print(state);
+  telnet.println("");
+  tramecmd[0] = 42;
+  tramecmd[1] = 65;
+  for ( int i=2 ; i < 16 ; i++) {
+    tramecmd[i]=255;
+  }
+
+  tramecmd[10] = byteSet(state, 3, hackeron.rawFieldA10);
+
+  //ensuite écrire sur le bluetooth tramecmd
+  writeOnBle(tramecmd, 17);
+  
+  //on relance une interrogation du hackeron afin de mettre a jour les valeurs
+  taskConnectBleServer.forceNextIteration();
+
+
+}
+
 void cb_connectBleServer(){
   //connection au serveur Ble
   // If the flag "doConnect" is true then we have scanned for and found the desired
@@ -789,7 +823,8 @@ void cb_loopHaIntegration(){
   poolProdElx.setValue(hackeron.elx.Value); //(value = consigne)
  
   voletActif.setState(hackeron.VoletActif);
-  voletForce.setState(hackeron.VoletActif);
+  voletForce.setState(hackeron.VoletForce);
+  volet.setState(hackeron.VoletForce);
 
 }
 
@@ -839,6 +874,13 @@ void onStateChangedBoost2H (bool state, HASwitch* s){
   commandeBoost(duration);
 
 }
+
+void onStateChangedVolet (bool state, HASwitch* s){
+  
+  commandeVolet(state);
+
+}
+
 
 void setupHaIntegration(){
 
@@ -961,6 +1003,10 @@ void setupHaIntegration(){
 
   voletActif.setName("Volet Actif");
   voletForce.setName("Volet Force");
+
+  volet.setName("Volet");
+  volet.setIcon("mdi:window-shutter");
+  volet.onStateChanged(onStateChangedVolet);
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
