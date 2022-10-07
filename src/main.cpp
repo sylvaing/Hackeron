@@ -382,7 +382,7 @@ void extractTrameA(uint8_t ltrame[]){
   hackeron.alarmeElx = trame[12] & 0xF;
   hackeron.elx.Value = trame[2];
 
-  hackeron.DureeBoost = (uint8_t)round(byteToDouble(ltrame[2], ltrame[3]));
+  hackeron.DureeBoost = (uint8_t)byteToDouble(ltrame[2], ltrame[3]);
   if (hackeron.DureeBoost > 0 ){
     hackeron.BoostActif = true;
   }else{
@@ -972,7 +972,7 @@ void setupHaIntegration(){
   redoxConsigneNumber.setIcon("mdi:alpha-r-box-outline");
   redoxConsigneNumber.setStep(10);
   redoxConsigneNumber.setPrecision(0);
-  redoxConsigneNumber.setMin(630);
+  redoxConsigneNumber.setMin(400);
   redoxConsigneNumber.setMax(800);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
   redoxConsigneNumber.onValueChanged(onValueConsigneRedoxChanged);
