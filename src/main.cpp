@@ -906,6 +906,7 @@ void setupHaIntegration(){
 
   wifiStrength.setName("Pool wifi Strength");
   wifiStrength.setDeviceClass("signal_strength");
+  wifiStrength.setUnitOfMeasurement("dB");
 
   hackeronIp.setName("hackeron IP");
   hackeronIp.setIcon("mdi:ip-network");
