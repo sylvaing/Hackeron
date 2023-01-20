@@ -9,7 +9,7 @@
 
 // for arduion-HA integration
 #include <ArduinoHA.h>
-#include <ArduinoHADefines.h>
+//#include <ArduinoHADefines.h>
 
 
 //ElegantOTA
@@ -75,41 +75,55 @@ HADevice deviceHA;
 HAMqtt  mqtt(wifiMQTT, deviceHA);
 
 //List of sensor for HA
-HASensor wifiStrength("pool_wifi_strength");
+HASensorNumber wifiStrength("pool_wifi_strength", HASensorNumber::PrecisionP2);
 HASensor hackeronIp("pool_ip");
 
 
-HASensor temp("pool_temp") ; 
-HASensor ph("pool_ph");
-HASensor redox("pool_redox") ;
-HASensor sel("pool_sel");
-HASensor alarme("pool_alarme");
-HASensor alarmeRdx("pool_alarmeRdx");
-HASensor warning("pool_warning");
-HABinarySensor pompeMoinsActive("pool_pompeMoinsActive","running",false);
-HASensor  phConsigne("pool_ph_consigne");
-HASensor  redoxConsigne("pool_redox_consigne");
-HABinarySensor boostActif("pool_boostActif", "running", false);
-HASensor  boostDuration("pool_boos_duration");
+HASensorNumber temp("pool_temp",HASensorNumber::PrecisionP2) ; 
+HASensorNumber ph("pool_ph",HASensorNumber::PrecisionP2);
+HASensorNumber redox("pool_redox",HASensorNumber::PrecisionP2) ;
+HASensorNumber sel("pool_sel",HASensorNumber::PrecisionP2);
+HASensorNumber alarme("pool_alarme");
+HASensorNumber alarmeRdx("pool_alarmeRdx");
+HASensorNumber warning("pool_warning");
+//HABinarySensor pompeMoinsActive("pool_pompeMoinsActive","running",false);
+HABinarySensor pompeMoinsActive("pool_pompeMoinsActive");
 
-HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
-HASensor alarmeElx("pool_alarmeElx");
+HASensorNumber  phConsigne("pool_ph_consigne",HASensorNumber::PrecisionP2);
+HASensorNumber  redoxConsigne("pool_redox_consigne");
+//HABinarySensor boostActif("pool_boostActif", "running", false);
+HABinarySensor boostActif("pool_boostActif");
 
-HABinarySensor pompeForcees("pool_pompeForcees",false);
-HABinarySensor voletForce("pool_voletForce", false);
-HABinarySensor voletActif("pool_voletActif", false);
+HASensorNumber  boostDuration("pool_boos_duration");
+
+//HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
+HABinarySensor pompeChlElxActive("pool_pompeChlElxActive");
+
+HASensorNumber alarmeElx("pool_alarmeElx");
+
+//HABinarySensor pompeForcees("pool_pompeForcees",false);
+//HABinarySensor voletForce("pool_voletForce", false);
+//HABinarySensor voletActif("pool_voletActif", false);
+
+HABinarySensor pompeForcees("pool_pompeForcees");
+HABinarySensor voletForce("pool_voletForce");
+HABinarySensor voletActif("pool_voletActif");
 
 
-HASensor elx("pool_elx_value");
+HASensorNumber elx("pool_elx_value");
 
 HANumber redoxConsigneNumber("pool_redox_consigne_number");
 HANumber phConsigneNumber("pool_ph_consigne_number");
 HANumber poolProdElx("pool_prod_elx_number");
 
-HASwitch boostFor2h("pool_boost_2h", false);
-HASwitch volet("pool_volet", false);
+//HASwitch boostFor2h("pool_boost_2h", false);
+//HASwitch volet("pool_volet", false);
+HASwitch boostFor2h("pool_boost_2h");
+HASwitch volet("pool_volet");
 
-HABinarySensor bluetoothConnected("pool_bluetooth_connected","connectivity",false);
+//HABinarySensor bluetoothConnected("pool_bluetooth_connected","connectivity",false);
+HABinarySensor bluetoothConnected("pool_bluetooth_connected");
+
 
 
 struct Mesure {
@@ -800,13 +814,13 @@ void cb_loopHaIntegration(){
   if ((hackeron.sel.Value <= 10) && (hackeron.sel.Value >= 0)){
     sel.setValue(hackeron.sel.Value,2);
   }
-  alarme.setValue((float)hackeron.alarme,0);
-  alarmeRdx.setValue((float)hackeron.alarmRdx,0);
-  warning.setValue((float)hackeron.warning,0);
+  alarme.setValue((float)hackeron.alarme);
+  alarmeRdx.setValue((float)hackeron.alarmRdx);
+  warning.setValue((float)hackeron.warning);
   pompeMoinsActive.setState(hackeron.pompeMoinsActive);
 
-  phConsigne.setValue(hackeron.ph.Consigne,2);
-  redoxConsigne.setValue(hackeron.redox.Consigne,2);
+  phConsigne.setValue(hackeron.ph.Consigne);
+  redoxConsigne.setValue(hackeron.redox.Consigne);
 
   boostActif.setState(hackeron.BoostActif);
   boostDuration.setValue(hackeron.DureeBoost);
@@ -818,9 +832,9 @@ void cb_loopHaIntegration(){
 
   elx.setValue(hackeron.elx.Value);
 
-  redoxConsigneNumber.setValue(hackeron.redox.Consigne);
-  phConsigneNumber.setValue(hackeron.ph.Consigne);
-  poolProdElx.setValue(hackeron.elx.Value); //(value = consigne)
+  redoxConsigneNumber.setState(hackeron.redox.Consigne);
+  phConsigneNumber.setState(hackeron.ph.Consigne);
+  poolProdElx.setState(hackeron.elx.Value); //(value = consigne)
  
   voletActif.setState(hackeron.VoletActif);
   voletForce.setState(hackeron.VoletForce);
@@ -828,7 +842,7 @@ void cb_loopHaIntegration(){
 
 }
 
-void onValueConsigneRedoxChanged( float value, HANumber* n){
+void OLDonValueConsigneRedoxChanged( float value, HANumber* n){
   telnet.println("Value of Redox changed: ");
   telnet.print(value);
   telnet.println("");
@@ -836,14 +850,44 @@ void onValueConsigneRedoxChanged( float value, HANumber* n){
   //Changer la conf sur le akeron->bleWrite
   commandeRedox(uint16_t(value));
 }
+void onValueConsigneRedoxChanged( HANumeric number, HANumber* sender){
+  if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        uint16_t numberUInt16 = number.toUInt16();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberUInt16);
+        telnet.println("");
 
-void onValueConsignePhChanged( float value, HANumber* n){
+          //Changer la conf sur le akeron->bleWrite
+        commandeRedox(numberUInt16);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+}
+
+void OLDonValueConsignePhChanged( float value, HANumber* n){
   telnet.println("Value of PH changed: ");
   telnet.print(value);
   telnet.println("");
 
   //Changer la conf sur le akeron->bleWrite
   commandePh(value);
+}
+
+void onValueConsignePhChanged( HANumeric number, HANumber* sender){
+  if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        float numberFloat = number.toFloat();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberFloat);
+        telnet.println("");
+
+         //Changer la conf sur le akeron->bleWrite
+        commandePh(numberFloat);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+  
 }
 
 void onValueProdElxChanged (float value, HANumber* n){
@@ -875,7 +919,7 @@ void onStateChangedBoost2H (bool state, HASwitch* s){
 
 }
 
-void onStateChangedVolet (bool state, HASwitch* s){
+void onStateChangedVolet (bool state, HASwitch* sender){
   
   commandeVolet(state);
 
@@ -972,33 +1016,33 @@ void setupHaIntegration(){
   redoxConsigneNumber.setName("Consigne Redox");
   redoxConsigneNumber.setIcon("mdi:alpha-r-box-outline");
   redoxConsigneNumber.setStep(10);
-  redoxConsigneNumber.setPrecision(0);
+  //redoxConsigneNumber.setPrecision(0);
   redoxConsigneNumber.setMin(400);
   redoxConsigneNumber.setMax(800);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
-  redoxConsigneNumber.onValueChanged(onValueConsigneRedoxChanged);
+  //redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
 
   phConsigneNumber.setName("Consigne PH");
   phConsigneNumber.setIcon("mdi:ph");
-  phConsigneNumber.setPrecision(2);
+  //phConsigneNumber.setPrecision(2);
   phConsigneNumber.setStep(0.05);
-  phConsigneNumber.setPrecisionMinMax(2);
+  //phConsigneNumber.setPrecisionMinMax(2);
   phConsigneNumber.setMin(6.8);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
-  phConsigneNumber.onValueChanged(onValueConsignePhChanged);
+  //phConsigneNumber.onCommand(onValueConsignePhChanged);
 
 
   poolProdElx.setName("Production Elx");
   poolProdElx.setIcon("mdi:electron-framework");
   poolProdElx.setStep(10);
-  poolProdElx.setPrecision(0);
+  //poolProdElx.setPrecision(0);
   poolProdElx.setUnitOfMeasurement("%");
-  poolProdElx.onValueChanged(onValueProdElxChanged);
+  //poolProdElx.onValueChanged(onValueProdElxChanged);
   
   boostFor2h.setName("Start Boost For 2H");
   boostFor2h.setIcon("mdi:alpha-b-box-outline");
-  boostFor2h.onStateChanged(onStateChangedBoost2H);
+  //boostFor2h.onStateChanged(onStateChangedBoost2H);
 
   bluetoothConnected.setName("Bluetooth Status");
 
@@ -1007,7 +1051,7 @@ void setupHaIntegration(){
 
   volet.setName("Volet");
   volet.setIcon("mdi:window-shutter");
-  volet.onStateChanged(onStateChangedVolet);
+  volet.onCommand(onStateChangedVolet);
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
