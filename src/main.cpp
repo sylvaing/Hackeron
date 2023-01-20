@@ -890,7 +890,23 @@ void onValueConsignePhChanged( HANumeric number, HANumber* sender){
   
 }
 
-void onValueProdElxChanged (float value, HANumber* n){
+void onValueProdElxChanged (HANumeric number, HANumber* sender){
+    if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        uint8_t numberUint_8 = number.toUInt8();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberUint_8);
+        telnet.println("");
+
+         //Changer la conf sur le akeron->bleWrite
+        commandeElx(numberUint_8);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+  
+}
+
+void OLDonValueProdElxChanged (float value, HANumber* n){
   telnet.println("Value of Prod ELX changed: ");
   telnet.print(value);
   telnet.println("");
@@ -904,6 +920,7 @@ void onValueProdElxChanged (float value, HANumber* n){
   //Changer la conf sur le akeron->bleWrite
   commandeElx(v);
 }
+
 
 void onStateChangedBoost2H (bool state, HASwitch* s){
   
@@ -1020,7 +1037,7 @@ void setupHaIntegration(){
   redoxConsigneNumber.setMin(400);
   redoxConsigneNumber.setMax(800);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
-  //redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
+  redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
 
   phConsigneNumber.setName("Consigne PH");
   phConsigneNumber.setIcon("mdi:ph");
@@ -1030,7 +1047,7 @@ void setupHaIntegration(){
   phConsigneNumber.setMin(6.8);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
-  //phConsigneNumber.onCommand(onValueConsignePhChanged);
+  phConsigneNumber.onCommand(onValueConsignePhChanged);
 
 
   poolProdElx.setName("Production Elx");
@@ -1038,11 +1055,11 @@ void setupHaIntegration(){
   poolProdElx.setStep(10);
   //poolProdElx.setPrecision(0);
   poolProdElx.setUnitOfMeasurement("%");
-  //poolProdElx.onValueChanged(onValueProdElxChanged);
+  poolProdElx.onCommand(onValueProdElxChanged);
   
   boostFor2h.setName("Start Boost For 2H");
   boostFor2h.setIcon("mdi:alpha-b-box-outline");
-  //boostFor2h.onStateChanged(onStateChangedBoost2H);
+  boostFor2h.onCommand(onStateChangedBoost2H);
 
   bluetoothConnected.setName("Bluetooth Status");
 
