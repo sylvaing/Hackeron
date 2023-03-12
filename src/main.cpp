@@ -70,18 +70,19 @@ WiFiClient wifiMQTT;
 WiFiClient telnet;
 WiFiServer telnetServer(23);
 
-byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
+// Now define in config.h
+// byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
 HADevice deviceHA;
-HAMqtt  mqtt(wifiMQTT, deviceHA);
+// dernier paramètre pour le nombre de sensorMQTT à lister
+HAMqtt  mqtt(wifiMQTT, deviceHA, 30);
 
 //List of sensor for HA
 HASensorNumber wifiStrength("pool_wifi_strength", HASensorNumber::PrecisionP2);
 HASensor hackeronIp("pool_ip");
 
-
 HASensorNumber temp("pool_temp",HASensorNumber::PrecisionP2) ; 
 HASensorNumber ph("pool_ph",HASensorNumber::PrecisionP2);
-HASensorNumber redox("pool_redox",HASensorNumber::PrecisionP2) ;
+HASensorNumber redox("pool_redox",HASensorNumber::PrecisionP2);
 HASensorNumber sel("pool_sel",HASensorNumber::PrecisionP2);
 HASensorNumber alarme("pool_alarme");
 HASensorNumber alarmeRdx("pool_alarmeRdx");
@@ -417,6 +418,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //M->dec 77
       telnet.printf("trame de type: M %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type M"); 
       extractTrameM(trame77);
       doPublishMQTT = true;
       break;
@@ -424,6 +426,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //E->69
       telnet.printf("trame de type: E %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type E"); 
       extractTrameE(trame69);
       doPublishMQTT = true;
       break;
@@ -431,6 +434,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //S->83
       telnet.printf("trame de type: S %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type S"); 
       extractTrameS(trame83);
       doPublishMQTT = true;
       break;
@@ -438,6 +442,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //A->65
       telnet.printf("trame de type: A %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type A"); 
       extractTrameA(trame65);
       doPublishMQTT = true;
       break;
@@ -778,7 +783,7 @@ void cb_setupAndScan_ble() {
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
   pBLEScan->start(10, false);
-  //Serial.println("End Of BLE scan : any device found");
+  Serial.println("End Of BLE scan : any device found");
   
 }
 
@@ -814,6 +819,7 @@ void cb_loopHaIntegration(){
   if ((hackeron.sel.Value <= 10) && (hackeron.sel.Value >= 0)){
     sel.setValue(hackeron.sel.Value,2);
   }
+
   alarme.setValue((float)hackeron.alarme);
   alarmeRdx.setValue((float)hackeron.alarmRdx);
   warning.setValue((float)hackeron.warning);
@@ -950,7 +956,7 @@ void setupHaIntegration(){
   //HA integration
   deviceHA.setUniqueId(deviceUniqID, sizeof(deviceUniqID));
   deviceHA.setName("Hackeron");
-  deviceHA.setSoftwareVersion("0.0.4");
+  deviceHA.setSoftwareVersion("2.0.0-alpha");
   deviceHA.setModel("regul 4 RX");
   deviceHA.setManufacturer("Isynet");
   // This method enables availability for all device types registered on the device.
@@ -1079,7 +1085,7 @@ void setup() {
 
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
-
+  #define ARDUINOHA_DEBUG
   timeScheduler.init();
 
   timeScheduler.addTask(taskSetup);
