@@ -114,7 +114,7 @@ HABinarySensor voletActif("pool_voletActif");
 HASensorNumber elx("pool_elx_value");
 
 HANumber redoxConsigneNumber("pool_redox_consigne_number");
-HANumber phConsigneNumber("pool_ph_consigne_number");
+HANumber phConsigneNumber("pool_ph_consigne_number",HANumber::PrecisionP2);
 HANumber poolProdElx("pool_prod_elx_number");
 
 //HASwitch boostFor2h("pool_boost_2h", false);
