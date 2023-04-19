@@ -3,6 +3,14 @@
 #include "config.h"
 #include <Arduino.h>
 
+#include <Syslog.h>
+#include <WiFiUdp.h>
+// Syslog server connection info
+//#define SYSLOG_SERVER "192.168.1.101"
+#define SYSLOG_PORT 514
+#define SYSLOG_DEVICE_HOSTNAME "hackeron"
+#define SYSLOG_APP_NAME "hackeron"
+
 #include "NimBLEDevice.h"
 
 #include <WiFi.h>
@@ -19,6 +27,14 @@
 
 #include <TaskScheduler.h>
 Scheduler timeScheduler;
+
+//SYSLOG
+#ifdef SYSLOG_SERVER
+  // A UDP instance to let us send and receive packets over UDP
+  WiFiUDP udpClient;
+  // Create a new syslog instance with LOG_KERN facility
+  Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, SYSLOG_DEVICE_HOSTNAME, SYSLOG_APP_NAME, LOG_KERN);
+#endif
 
 void setup_wifi();
 void setup_telnet();
@@ -252,7 +268,16 @@ void setup_wifi() {
     telnet.print("Add task to Handle telnet");
 
     //ble setup
-    cb_setupAndScan_ble();
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "BLE Setup cb setupAnd Scan BLE");
+    #endif
+    Serial.println("BLE Setup cb setupAnd Scan BLE");
+    //cb_setupAndScan_ble();
+    doScan = true;
+    timeScheduler.addTask(taskConnectBleServer);
+    taskConnectBleServer.enable();
+    // taskConnectBleServer.forceNextIteration();
+    Serial.print("Add task to Connec Ble server!!!!!!");
 
 
 }
@@ -557,8 +582,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         doConnectBle = true;
         doScan = false;
 
-        timeScheduler.addTask(taskConnectBleServer);
-        taskConnectBleServer.enable();
+        // timeScheduler.addTask(taskConnectBleServer);
+        taskConnectBleServer.forceNextIteration();
         Serial.println("add Task Connect Ble server");
 
       } // Found our server
@@ -715,6 +740,10 @@ void cb_connectBleServer(){
   // BLE Server with which we wish to connect.  Now we connect to it.  Once we are
   // connected we set the connected flag to be true.
     Serial.println("connectBleServer");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "connectBleServer");
+    #endif
+
 
   if (connected == true ){
     Serial.println("connected = true");
@@ -723,18 +752,30 @@ void cb_connectBleServer(){
     // sur le le callback bluetooth
     bool rep;
     telnet.println("Write BLE 77");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE M=77");
+    #endif
     rep = writeOnBle( Ask((uint8_t)77), sizeof(trame77));
     delay(500); // delay between write to ask on hackeron device
     //Interoger le serveur sur S=83
     telnet.println("Write BLE 83");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE S=83");
+    #endif
     rep = writeOnBle( Ask((uint8_t)83), sizeof(trame83) );
     delay(500);
     //Interoger le serveur sur A=65
     telnet.println("Write BLE 65");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE A=65");
+    #endif
     rep = writeOnBle( Ask((uint8_t)65), sizeof(trame65) );
     delay(500);
     //Interoger le serveur sur E=69
     telnet.println("Write BLE 69");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE E=69");
+    #endif
     rep = writeOnBle( Ask((uint8_t)69), sizeof(trame69) );
     delay(500);
 
@@ -746,30 +787,50 @@ void cb_connectBleServer(){
   }else{
     if (doConnectBle == true) {
       Serial.println("doConnectBle is true");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "doConnectBle is true");
+      #endif
         if (connectToServer()) {
           Serial.println("We are now connected to the BLE Server.");
+          #ifdef SYSLOG_SERVER
+            syslog.log(LOG_INFO, "We are now connected to the BLE Server.");
+          #endif
           //write sur la prochaine itération de la task
           taskConnectBleServer.forceNextIteration();
         } else {
           Serial.println("We have failed to connect to the server; there is nothin more we will do.");
+          #ifdef SYSLOG_SERVER
+            syslog.log(LOG_INFO, "We have failed to connect to the server; there is nothin more we will do.");
+          #endif
           doScan = true;
         }
       doConnectBle = false;
       Serial.println("doConnectBle ********************* to false ");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "doConnectBle ********************* to false ");
+      #endif
       //on relance un scan
     }
     if (doScan == true){
+      Serial.println( "add Task to Scan Ble devices");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "add Task to Scan Ble devices");
+      #endif
       timeScheduler.addTask(taskBleSetupAndScan);
       taskBleSetupAndScan.enable();
-      Serial.println( "add Task to Scan Ble devices");
     }
     Serial.println("connected = false");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "connected = false");
+    #endif
   } 
 }
 
 void cb_setupAndScan_ble() {
 
-
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "cb setupAnd Scan BLE");
+  #endif
 
   taskBleSetupAndScan.disable();
   BLEDevice::init("");
@@ -784,6 +845,10 @@ void cb_setupAndScan_ble() {
   pBLEScan->setActiveScan(true);
   pBLEScan->start(10, false);
   Serial.println("End Of BLE scan : any device found");
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "End Of BLE scan : any device found");
+  #endif
+
   
 }
 
@@ -951,6 +1016,9 @@ void onStateChangedVolet (bool state, HASwitch* sender){
 
 void setupHaIntegration(){
 
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "Setup HA Integration");
+  #endif
   //taskSetupHaIntegration.disable();
 
   //HA integration
@@ -1041,7 +1109,7 @@ void setupHaIntegration(){
   redoxConsigneNumber.setStep(10);
   //redoxConsigneNumber.setPrecision(0);
   redoxConsigneNumber.setMin(400);
-  redoxConsigneNumber.setMax(800);
+  redoxConsigneNumber.setMax(950);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
   redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
 
@@ -1050,7 +1118,7 @@ void setupHaIntegration(){
   //phConsigneNumber.setPrecision(2);
   phConsigneNumber.setStep(0.05);
   //phConsigneNumber.setPrecisionMinMax(2);
-  phConsigneNumber.setMin(6.8);
+  phConsigneNumber.setMin(6.5);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
   phConsigneNumber.onCommand(onValueConsignePhChanged);
@@ -1096,6 +1164,7 @@ void setup() {
 
 void loop() {
   //Serial.println("in the loop");
+  //syslog.log(LOG_INFO, "Begin loop");
   timeScheduler.execute();
 
 } // End of loop
