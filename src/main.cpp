@@ -6,7 +6,6 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 // Syslog server connection info
-//#define SYSLOG_SERVER "192.168.1.101"
 #define SYSLOG_PORT 514
 #define SYSLOG_DEVICE_HOSTNAME "hackeron"
 #define SYSLOG_APP_NAME "hackeron"
@@ -103,24 +102,17 @@ HASensorNumber sel("pool_sel",HASensorNumber::PrecisionP2);
 HASensorNumber alarme("pool_alarme");
 HASensorNumber alarmeRdx("pool_alarmeRdx");
 HASensorNumber warning("pool_warning");
-//HABinarySensor pompeMoinsActive("pool_pompeMoinsActive","running",false);
 HABinarySensor pompeMoinsActive("pool_pompeMoinsActive");
 
 HASensorNumber  phConsigne("pool_ph_consigne",HASensorNumber::PrecisionP2);
 HASensorNumber  redoxConsigne("pool_redox_consigne");
-//HABinarySensor boostActif("pool_boostActif", "running", false);
 HABinarySensor boostActif("pool_boostActif");
 
 HASensorNumber  boostDuration("pool_boos_duration");
 
-//HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
 HABinarySensor pompeChlElxActive("pool_pompeChlElxActive");
 
 HASensorNumber alarmeElx("pool_alarmeElx");
-
-//HABinarySensor pompeForcees("pool_pompeForcees",false);
-//HABinarySensor voletForce("pool_voletForce", false);
-//HABinarySensor voletActif("pool_voletActif", false);
 
 HABinarySensor pompeForcees("pool_pompeForcees");
 HABinarySensor voletForce("pool_voletForce");
@@ -133,12 +125,9 @@ HANumber redoxConsigneNumber("pool_redox_consigne_number");
 HANumber phConsigneNumber("pool_ph_consigne_number",HANumber::PrecisionP2);
 HANumber poolProdElx("pool_prod_elx_number");
 
-//HASwitch boostFor2h("pool_boost_2h", false);
-//HASwitch volet("pool_volet", false);
 HASwitch boostFor2h("pool_boost_2h");
 HASwitch volet("pool_volet");
 
-//HABinarySensor bluetoothConnected("pool_bluetooth_connected","connectivity",false);
 HABinarySensor bluetoothConnected("pool_bluetooth_connected");
 
 
@@ -913,14 +902,6 @@ void cb_loopHaIntegration(){
 
 }
 
-void OLDonValueConsigneRedoxChanged( float value, HANumber* n){
-  telnet.println("Value of Redox changed: ");
-  telnet.print(value);
-  telnet.println("");
-
-  //Changer la conf sur le akeron->bleWrite
-  commandeRedox(uint16_t(value));
-}
 void onValueConsigneRedoxChanged( HANumeric number, HANumber* sender){
   if (!number.isSet()) {
         // the reset command was send by Home Assistant
@@ -934,15 +915,6 @@ void onValueConsigneRedoxChanged( HANumeric number, HANumber* sender){
         commandeRedox(numberUInt16);
     }
     sender->setState(number); // report the selected option back to the HA panel
-}
-
-void OLDonValueConsignePhChanged( float value, HANumber* n){
-  telnet.println("Value of PH changed: ");
-  telnet.print(value);
-  telnet.println("");
-
-  //Changer la conf sur le akeron->bleWrite
-  commandePh(value);
 }
 
 void onValueConsignePhChanged( HANumeric number, HANumber* sender){
@@ -976,22 +948,6 @@ void onValueProdElxChanged (HANumeric number, HANumber* sender){
     sender->setState(number); // report the selected option back to the HA panel
   
 }
-
-void OLDonValueProdElxChanged (float value, HANumber* n){
-  telnet.println("Value of Prod ELX changed: ");
-  telnet.print(value);
-  telnet.println("");
-
-  uint8_t v = round(value);
-
-  telnet.println("Value of Prod ELX rounded: ");
-  telnet.print(v);
-  telnet.println("");
-
-  //Changer la conf sur le akeron->bleWrite
-  commandeElx(v);
-}
-
 
 void onStateChangedBoost2H (bool state, HASwitch* s){
   
@@ -1107,7 +1063,6 @@ void setupHaIntegration(){
   redoxConsigneNumber.setName("Consigne Redox");
   redoxConsigneNumber.setIcon("mdi:alpha-r-box-outline");
   redoxConsigneNumber.setStep(10);
-  //redoxConsigneNumber.setPrecision(0);
   redoxConsigneNumber.setMin(400);
   redoxConsigneNumber.setMax(950);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
@@ -1115,9 +1070,7 @@ void setupHaIntegration(){
 
   phConsigneNumber.setName("Consigne PH");
   phConsigneNumber.setIcon("mdi:ph");
-  //phConsigneNumber.setPrecision(2);
   phConsigneNumber.setStep(0.05);
-  //phConsigneNumber.setPrecisionMinMax(2);
   phConsigneNumber.setMin(6.5);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
@@ -1127,7 +1080,6 @@ void setupHaIntegration(){
   poolProdElx.setName("Production Elx");
   poolProdElx.setIcon("mdi:electron-framework");
   poolProdElx.setStep(10);
-  //poolProdElx.setPrecision(0);
   poolProdElx.setUnitOfMeasurement("%");
   poolProdElx.onCommand(onValueProdElxChanged);
   
