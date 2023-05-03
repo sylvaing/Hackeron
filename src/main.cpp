@@ -16,7 +16,7 @@
 
 // for arduion-HA integration
 #include <ArduinoHA.h>
-//#include <ArduinoHADefines.h>
+#include <ArduinoHADefines.h>
 
 
 //ElegantOTA
@@ -85,14 +85,12 @@ WiFiClient wifiMQTT;
 WiFiClient telnet;
 WiFiServer telnetServer(23);
 
-// Now define in config.h
-// byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
+byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
 HADevice deviceHA;
-// dernier paramètre pour le nombre de sensorMQTT à lister
-HAMqtt  mqtt(wifiMQTT, deviceHA, 30);
+HAMqtt  mqtt(wifiMQTT, deviceHA);
 
 //List of sensor for HA
-HASensorNumber wifiStrength("pool_wifi_strength", HASensorNumber::PrecisionP2);
+HASensor wifiStrength("pool_wifi_strength");
 HASensor hackeronIp("pool_ip");
 
 HASensorNumber temp("pool_temp",HASensorNumber::PrecisionP2) ; 
@@ -108,7 +106,10 @@ HASensorNumber  phConsigne("pool_ph_consigne",HASensorNumber::PrecisionP2);
 HASensorNumber  redoxConsigne("pool_redox_consigne");
 HABinarySensor boostActif("pool_boostActif");
 
-HASensorNumber  boostDuration("pool_boos_duration");
+HASensor  boostDuration("pool_boos_duration");
+
+HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
+HASensor alarmeElx("pool_alarmeElx");
 
 HABinarySensor pompeChlElxActive("pool_pompeChlElxActive");
 
@@ -119,17 +120,17 @@ HABinarySensor voletForce("pool_voletForce");
 HABinarySensor voletActif("pool_voletActif");
 
 
-HASensorNumber elx("pool_elx_value");
+
+HASensor elx("pool_elx_value");
 
 HANumber redoxConsigneNumber("pool_redox_consigne_number");
-HANumber phConsigneNumber("pool_ph_consigne_number",HANumber::PrecisionP2);
+HANumber phConsigneNumber("pool_ph_consigne_number");
 HANumber poolProdElx("pool_prod_elx_number");
 
 HASwitch boostFor2h("pool_boost_2h");
 HASwitch volet("pool_volet");
 
 HABinarySensor bluetoothConnected("pool_bluetooth_connected");
-
 
 
 struct Mesure {
@@ -432,7 +433,6 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //M->dec 77
       telnet.printf("trame de type: M %d", mnemo);
       telnet.println(" ");
-      Serial.println("trame de type M"); 
       extractTrameM(trame77);
       doPublishMQTT = true;
       break;
@@ -440,7 +440,6 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //E->69
       telnet.printf("trame de type: E %d", mnemo);
       telnet.println(" ");
-      Serial.println("trame de type E"); 
       extractTrameE(trame69);
       doPublishMQTT = true;
       break;
@@ -448,7 +447,6 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //S->83
       telnet.printf("trame de type: S %d", mnemo);
       telnet.println(" ");
-      Serial.println("trame de type S"); 
       extractTrameS(trame83);
       doPublishMQTT = true;
       break;
@@ -456,7 +454,6 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //A->65
       telnet.printf("trame de type: A %d", mnemo);
       telnet.println(" ");
-      Serial.println("trame de type A"); 
       extractTrameA(trame65);
       doPublishMQTT = true;
       break;
@@ -837,7 +834,6 @@ void cb_setupAndScan_ble() {
   #ifdef SYSLOG_SERVER
     syslog.log(LOG_INFO, "End Of BLE scan : any device found");
   #endif
-
   
 }
 
@@ -873,14 +869,13 @@ void cb_loopHaIntegration(){
   if ((hackeron.sel.Value <= 10) && (hackeron.sel.Value >= 0)){
     sel.setValue(hackeron.sel.Value,2);
   }
-
-  alarme.setValue((float)hackeron.alarme);
-  alarmeRdx.setValue((float)hackeron.alarmRdx);
-  warning.setValue((float)hackeron.warning);
+  alarme.setValue((float)hackeron.alarme,0);
+  alarmeRdx.setValue((float)hackeron.alarmRdx,0);
+  warning.setValue((float)hackeron.warning,0);
   pompeMoinsActive.setState(hackeron.pompeMoinsActive);
 
-  phConsigne.setValue(hackeron.ph.Consigne);
-  redoxConsigne.setValue(hackeron.redox.Consigne);
+  phConsigne.setValue(hackeron.ph.Consigne,2);
+  redoxConsigne.setValue(hackeron.redox.Consigne,2);
 
   boostActif.setState(hackeron.BoostActif);
   boostDuration.setValue(hackeron.DureeBoost);
@@ -892,9 +887,9 @@ void cb_loopHaIntegration(){
 
   elx.setValue(hackeron.elx.Value);
 
-  redoxConsigneNumber.setState(hackeron.redox.Consigne);
-  phConsigneNumber.setState(hackeron.ph.Consigne);
-  poolProdElx.setState(hackeron.elx.Value); //(value = consigne)
+  redoxConsigneNumber.setValue(hackeron.redox.Consigne);
+  phConsigneNumber.setValue(hackeron.ph.Consigne);
+  poolProdElx.setValue(hackeron.elx.Value); //(value = consigne)
  
   voletActif.setState(hackeron.VoletActif);
   voletForce.setState(hackeron.VoletForce);
@@ -963,7 +958,7 @@ void onStateChangedBoost2H (bool state, HASwitch* s){
 
 }
 
-void onStateChangedVolet (bool state, HASwitch* sender){
+void onStateChangedVolet (bool state, HASwitch* s){
   
   commandeVolet(state);
 
@@ -980,7 +975,7 @@ void setupHaIntegration(){
   //HA integration
   deviceHA.setUniqueId(deviceUniqID, sizeof(deviceUniqID));
   deviceHA.setName("Hackeron");
-  deviceHA.setSoftwareVersion("2.0.0-alpha");
+  deviceHA.setSoftwareVersion("0.0.4");
   deviceHA.setModel("regul 4 RX");
   deviceHA.setManufacturer("Isynet");
   // This method enables availability for all device types registered on the device.
@@ -1066,7 +1061,7 @@ void setupHaIntegration(){
   redoxConsigneNumber.setMin(400);
   redoxConsigneNumber.setMax(950);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
-  redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
+  redoxConsigneNumber.onValueChanged(onValueConsigneRedoxChanged);
 
   phConsigneNumber.setName("Consigne PH");
   phConsigneNumber.setIcon("mdi:ph");
@@ -1074,18 +1069,18 @@ void setupHaIntegration(){
   phConsigneNumber.setMin(6.5);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
-  phConsigneNumber.onCommand(onValueConsignePhChanged);
+  phConsigneNumber.onValueChanged(onValueConsignePhChanged);
 
 
   poolProdElx.setName("Production Elx");
   poolProdElx.setIcon("mdi:electron-framework");
   poolProdElx.setStep(10);
   poolProdElx.setUnitOfMeasurement("%");
-  poolProdElx.onCommand(onValueProdElxChanged);
+  poolProdElx.onValueChanged(onValueProdElxChanged);
   
   boostFor2h.setName("Start Boost For 2H");
   boostFor2h.setIcon("mdi:alpha-b-box-outline");
-  boostFor2h.onCommand(onStateChangedBoost2H);
+  boostFor2h.onStateChanged(onStateChangedBoost2H);
 
   bluetoothConnected.setName("Bluetooth Status");
 
@@ -1094,7 +1089,7 @@ void setupHaIntegration(){
 
   volet.setName("Volet");
   volet.setIcon("mdi:window-shutter");
-  volet.onCommand(onStateChangedVolet);
+  volet.onStateChanged(onStateChangedVolet);
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
@@ -1105,7 +1100,7 @@ void setup() {
 
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
-  #define ARDUINOHA_DEBUG
+
   timeScheduler.init();
 
   timeScheduler.addTask(taskSetup);

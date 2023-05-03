@@ -5,5 +5,7 @@
 .vscode/ipch
 src/config.h
 src/config.h
+.DS_Store
+src/config.h
 src/config.h
 src/config.h
