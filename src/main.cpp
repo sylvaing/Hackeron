@@ -768,6 +768,9 @@ void cb_connectBleServer(){
     rep = writeOnBle( Ask((uint8_t)69), sizeof(trame69) );
     delay(500);
 
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "End of write for question for Akeron");
+    #endif
 
     if (rep == false){
       connected = false;
