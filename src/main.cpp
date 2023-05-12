@@ -1067,7 +1067,7 @@ void setupHaIntegration(){
   redoxConsigneNumber.setIcon("mdi:alpha-r-box-outline");
   redoxConsigneNumber.setStep(10);
   redoxConsigneNumber.setMin(400);
-  redoxConsigneNumber.setMax(950);
+  redoxConsigneNumber.setMax(1100);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
   redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
 
