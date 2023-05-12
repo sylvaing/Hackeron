@@ -3,13 +3,20 @@
 #include "config.h"
 #include <Arduino.h>
 
+#include <Syslog.h>
+#include <WiFiUdp.h>
+// Syslog server connection info
+#define SYSLOG_PORT 514
+#define SYSLOG_DEVICE_HOSTNAME "hackeron"
+#define SYSLOG_APP_NAME "hackeron"
+
 #include "NimBLEDevice.h"
 
 #include <WiFi.h>
 
 // for arduion-HA integration
 #include <ArduinoHA.h>
-#include <ArduinoHADefines.h>
+//#include <ArduinoHADefines.h>
 
 
 //ElegantOTA
@@ -19,6 +26,14 @@
 
 #include <TaskScheduler.h>
 Scheduler timeScheduler;
+
+//SYSLOG
+#ifdef SYSLOG_SERVER
+  // A UDP instance to let us send and receive packets over UDP
+  WiFiUDP udpClient;
+  // Create a new syslog instance with LOG_KERN facility
+  Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, SYSLOG_DEVICE_HOSTNAME, SYSLOG_APP_NAME, LOG_KERN);
+#endif
 
 void setup_wifi();
 void setup_telnet();
@@ -70,46 +85,51 @@ WiFiClient wifiMQTT;
 WiFiClient telnet;
 WiFiServer telnetServer(23);
 
-byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
+// Now define in config.h
+// byte deviceUniqID[] = { 0xDF, 0xBE, 0xEB, 0xFE, 0xEF, 0xF0 };
 HADevice deviceHA;
-HAMqtt  mqtt(wifiMQTT, deviceHA);
+// dernier paramètre pour le nombre de sensorMQTT à lister
+HAMqtt  mqtt(wifiMQTT, deviceHA, 30);
 
 //List of sensor for HA
-HASensor wifiStrength("pool_wifi_strength");
+HASensorNumber wifiStrength("pool_wifi_strength", HASensorNumber::PrecisionP2);
 HASensor hackeronIp("pool_ip");
 
+HASensorNumber temp("pool_temp",HASensorNumber::PrecisionP2) ; 
+HASensorNumber ph("pool_ph",HASensorNumber::PrecisionP2);
+HASensorNumber redox("pool_redox",HASensorNumber::PrecisionP2);
+HASensorNumber sel("pool_sel",HASensorNumber::PrecisionP2);
+HASensorNumber alarme("pool_alarme");
+HASensorNumber alarmeRdx("pool_alarmeRdx");
+HASensorNumber warning("pool_warning");
+HABinarySensor pompeMoinsActive("pool_pompeMoinsActive");
 
-HASensor temp("pool_temp") ; 
-HASensor ph("pool_ph");
-HASensor redox("pool_redox") ;
-HASensor sel("pool_sel");
-HASensor alarme("pool_alarme");
-HASensor alarmeRdx("pool_alarmeRdx");
-HASensor warning("pool_warning");
-HABinarySensor pompeMoinsActive("pool_pompeMoinsActive","running",false);
-HASensor  phConsigne("pool_ph_consigne");
-HASensor  redoxConsigne("pool_redox_consigne");
-HABinarySensor boostActif("pool_boostActif", "running", false);
-HASensor  boostDuration("pool_boos_duration");
+HASensorNumber  phConsigne("pool_ph_consigne",HASensorNumber::PrecisionP2);
+HASensorNumber  redoxConsigne("pool_redox_consigne");
+HABinarySensor boostActif("pool_boostActif");
 
-HABinarySensor pompeChlElxActive("pool_pompeChlElxActive","running", false);
-HASensor alarmeElx("pool_alarmeElx");
+HASensorNumber  boostDuration("pool_boos_duration");
 
-HABinarySensor pompeForcees("pool_pompeForcees",false);
-HABinarySensor voletForce("pool_voletForce", false);
-HABinarySensor voletActif("pool_voletActif", false);
+HABinarySensor pompeChlElxActive("pool_pompeChlElxActive");
+
+HASensorNumber alarmeElx("pool_alarmeElx");
+
+HABinarySensor pompeForcees("pool_pompeForcees");
+HABinarySensor voletForce("pool_voletForce");
+HABinarySensor voletActif("pool_voletActif");
 
 
-HASensor elx("pool_elx_value");
+HASensorNumber elx("pool_elx_value");
 
 HANumber redoxConsigneNumber("pool_redox_consigne_number");
-HANumber phConsigneNumber("pool_ph_consigne_number");
+HANumber phConsigneNumber("pool_ph_consigne_number",HANumber::PrecisionP2);
 HANumber poolProdElx("pool_prod_elx_number");
 
-HASwitch boostFor2h("pool_boost_2h", false);
-HASwitch volet("pool_volet", false);
+HASwitch boostFor2h("pool_boost_2h");
+HASwitch volet("pool_volet");
 
-HABinarySensor bluetoothConnected("pool_bluetooth_connected","connectivity",false);
+HABinarySensor bluetoothConnected("pool_bluetooth_connected");
+
 
 
 struct Mesure {
@@ -237,7 +257,16 @@ void setup_wifi() {
     telnet.print("Add task to Handle telnet");
 
     //ble setup
-    cb_setupAndScan_ble();
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "BLE Setup cb setupAnd Scan BLE");
+    #endif
+    Serial.println("BLE Setup cb setupAnd Scan BLE");
+    //cb_setupAndScan_ble();
+    doScan = true;
+    timeScheduler.addTask(taskConnectBleServer);
+    taskConnectBleServer.enable();
+    // taskConnectBleServer.forceNextIteration();
+    Serial.print("Add task to Connec Ble server!!!!!!");
 
 
 }
@@ -403,6 +432,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //M->dec 77
       telnet.printf("trame de type: M %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type M"); 
       extractTrameM(trame77);
       doPublishMQTT = true;
       break;
@@ -410,6 +440,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //E->69
       telnet.printf("trame de type: E %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type E"); 
       extractTrameE(trame69);
       doPublishMQTT = true;
       break;
@@ -417,6 +448,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //S->83
       telnet.printf("trame de type: S %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type S"); 
       extractTrameS(trame83);
       doPublishMQTT = true;
       break;
@@ -424,6 +456,7 @@ void extractionTrame( uint8_t mnemo, uint8_t ltrame[], String appareil){
       //A->65
       telnet.printf("trame de type: A %d", mnemo);
       telnet.println(" ");
+      Serial.println("trame de type A"); 
       extractTrameA(trame65);
       doPublishMQTT = true;
       break;
@@ -538,8 +571,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         doConnectBle = true;
         doScan = false;
 
-        timeScheduler.addTask(taskConnectBleServer);
-        taskConnectBleServer.enable();
+        // timeScheduler.addTask(taskConnectBleServer);
+        taskConnectBleServer.forceNextIteration();
         Serial.println("add Task Connect Ble server");
 
       } // Found our server
@@ -696,6 +729,10 @@ void cb_connectBleServer(){
   // BLE Server with which we wish to connect.  Now we connect to it.  Once we are
   // connected we set the connected flag to be true.
     Serial.println("connectBleServer");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "connectBleServer");
+    #endif
+
 
   if (connected == true ){
     Serial.println("connected = true");
@@ -704,21 +741,36 @@ void cb_connectBleServer(){
     // sur le le callback bluetooth
     bool rep;
     telnet.println("Write BLE 77");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE M=77");
+    #endif
     rep = writeOnBle( Ask((uint8_t)77), sizeof(trame77));
     delay(500); // delay between write to ask on hackeron device
     //Interoger le serveur sur S=83
     telnet.println("Write BLE 83");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE S=83");
+    #endif
     rep = writeOnBle( Ask((uint8_t)83), sizeof(trame83) );
     delay(500);
     //Interoger le serveur sur A=65
     telnet.println("Write BLE 65");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE A=65");
+    #endif
     rep = writeOnBle( Ask((uint8_t)65), sizeof(trame65) );
     delay(500);
     //Interoger le serveur sur E=69
     telnet.println("Write BLE 69");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "Write BLE E=69");
+    #endif
     rep = writeOnBle( Ask((uint8_t)69), sizeof(trame69) );
     delay(500);
 
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "End of write for question for Akeron");
+    #endif
 
     if (rep == false){
       connected = false;
@@ -727,30 +779,50 @@ void cb_connectBleServer(){
   }else{
     if (doConnectBle == true) {
       Serial.println("doConnectBle is true");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "doConnectBle is true");
+      #endif
         if (connectToServer()) {
           Serial.println("We are now connected to the BLE Server.");
+          #ifdef SYSLOG_SERVER
+            syslog.log(LOG_INFO, "We are now connected to the BLE Server.");
+          #endif
           //write sur la prochaine itération de la task
           taskConnectBleServer.forceNextIteration();
         } else {
           Serial.println("We have failed to connect to the server; there is nothin more we will do.");
+          #ifdef SYSLOG_SERVER
+            syslog.log(LOG_INFO, "We have failed to connect to the server; there is nothin more we will do.");
+          #endif
           doScan = true;
         }
       doConnectBle = false;
       Serial.println("doConnectBle ********************* to false ");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "doConnectBle ********************* to false ");
+      #endif
       //on relance un scan
     }
     if (doScan == true){
+      Serial.println( "add Task to Scan Ble devices");
+      #ifdef SYSLOG_SERVER
+        syslog.log(LOG_INFO, "add Task to Scan Ble devices");
+      #endif
       timeScheduler.addTask(taskBleSetupAndScan);
       taskBleSetupAndScan.enable();
-      Serial.println( "add Task to Scan Ble devices");
     }
     Serial.println("connected = false");
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "connected = false");
+    #endif
   } 
 }
 
 void cb_setupAndScan_ble() {
 
-
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "cb setupAnd Scan BLE");
+  #endif
 
   taskBleSetupAndScan.disable();
   BLEDevice::init("");
@@ -764,7 +836,11 @@ void cb_setupAndScan_ble() {
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
   pBLEScan->start(10, false);
-  //Serial.println("End Of BLE scan : any device found");
+  Serial.println("End Of BLE scan : any device found");
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "End Of BLE scan : any device found");
+  #endif
+
   
 }
 
@@ -800,13 +876,14 @@ void cb_loopHaIntegration(){
   if ((hackeron.sel.Value <= 10) && (hackeron.sel.Value >= 0)){
     sel.setValue(hackeron.sel.Value,2);
   }
-  alarme.setValue((float)hackeron.alarme,0);
-  alarmeRdx.setValue((float)hackeron.alarmRdx,0);
-  warning.setValue((float)hackeron.warning,0);
+
+  alarme.setValue((float)hackeron.alarme);
+  alarmeRdx.setValue((float)hackeron.alarmRdx);
+  warning.setValue((float)hackeron.warning);
   pompeMoinsActive.setState(hackeron.pompeMoinsActive);
 
-  phConsigne.setValue(hackeron.ph.Consigne,2);
-  redoxConsigne.setValue(hackeron.redox.Consigne,2);
+  phConsigne.setValue(hackeron.ph.Consigne);
+  redoxConsigne.setValue(hackeron.redox.Consigne);
 
   boostActif.setState(hackeron.BoostActif);
   boostDuration.setValue(hackeron.DureeBoost);
@@ -818,9 +895,9 @@ void cb_loopHaIntegration(){
 
   elx.setValue(hackeron.elx.Value);
 
-  redoxConsigneNumber.setValue(hackeron.redox.Consigne);
-  phConsigneNumber.setValue(hackeron.ph.Consigne);
-  poolProdElx.setValue(hackeron.elx.Value); //(value = consigne)
+  redoxConsigneNumber.setState(hackeron.redox.Consigne);
+  phConsigneNumber.setState(hackeron.ph.Consigne);
+  poolProdElx.setState(hackeron.elx.Value); //(value = consigne)
  
   voletActif.setState(hackeron.VoletActif);
   voletForce.setState(hackeron.VoletForce);
@@ -828,37 +905,51 @@ void cb_loopHaIntegration(){
 
 }
 
-void onValueConsigneRedoxChanged( float value, HANumber* n){
-  telnet.println("Value of Redox changed: ");
-  telnet.print(value);
-  telnet.println("");
+void onValueConsigneRedoxChanged( HANumeric number, HANumber* sender){
+  if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        uint16_t numberUInt16 = number.toUInt16();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberUInt16);
+        telnet.println("");
 
-  //Changer la conf sur le akeron->bleWrite
-  commandeRedox(uint16_t(value));
+          //Changer la conf sur le akeron->bleWrite
+        commandeRedox(numberUInt16);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
 }
 
-void onValueConsignePhChanged( float value, HANumber* n){
-  telnet.println("Value of PH changed: ");
-  telnet.print(value);
-  telnet.println("");
+void onValueConsignePhChanged( HANumeric number, HANumber* sender){
+  if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        float numberFloat = number.toFloat();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberFloat);
+        telnet.println("");
 
-  //Changer la conf sur le akeron->bleWrite
-  commandePh(value);
+         //Changer la conf sur le akeron->bleWrite
+        commandePh(numberFloat);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+  
 }
 
-void onValueProdElxChanged (float value, HANumber* n){
-  telnet.println("Value of Prod ELX changed: ");
-  telnet.print(value);
-  telnet.println("");
+void onValueProdElxChanged (HANumeric number, HANumber* sender){
+    if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        uint8_t numberUint_8 = number.toUInt8();
+        telnet.println("Value of Redox changed: ");
+        telnet.print(numberUint_8);
+        telnet.println("");
 
-  uint8_t v = round(value);
-
-  telnet.println("Value of Prod ELX rounded: ");
-  telnet.print(v);
-  telnet.println("");
-
-  //Changer la conf sur le akeron->bleWrite
-  commandeElx(v);
+         //Changer la conf sur le akeron->bleWrite
+        commandeElx(numberUint_8);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+  
 }
 
 void onStateChangedBoost2H (bool state, HASwitch* s){
@@ -875,7 +966,7 @@ void onStateChangedBoost2H (bool state, HASwitch* s){
 
 }
 
-void onStateChangedVolet (bool state, HASwitch* s){
+void onStateChangedVolet (bool state, HASwitch* sender){
   
   commandeVolet(state);
 
@@ -884,12 +975,15 @@ void onStateChangedVolet (bool state, HASwitch* s){
 
 void setupHaIntegration(){
 
+  #ifdef SYSLOG_SERVER
+    syslog.log(LOG_INFO, "Setup HA Integration");
+  #endif
   //taskSetupHaIntegration.disable();
 
   //HA integration
   deviceHA.setUniqueId(deviceUniqID, sizeof(deviceUniqID));
   deviceHA.setName("Hackeron");
-  deviceHA.setSoftwareVersion("0.0.4");
+  deviceHA.setSoftwareVersion("2.0.0-alpha");
   deviceHA.setModel("regul 4 RX");
   deviceHA.setManufacturer("Isynet");
   // This method enables availability for all device types registered on the device.
@@ -972,33 +1066,29 @@ void setupHaIntegration(){
   redoxConsigneNumber.setName("Consigne Redox");
   redoxConsigneNumber.setIcon("mdi:alpha-r-box-outline");
   redoxConsigneNumber.setStep(10);
-  redoxConsigneNumber.setPrecision(0);
   redoxConsigneNumber.setMin(400);
-  redoxConsigneNumber.setMax(800);
+  redoxConsigneNumber.setMax(1100);
   redoxConsigneNumber.setUnitOfMeasurement("mV");
-  redoxConsigneNumber.onValueChanged(onValueConsigneRedoxChanged);
+  redoxConsigneNumber.onCommand(onValueConsigneRedoxChanged);
 
   phConsigneNumber.setName("Consigne PH");
   phConsigneNumber.setIcon("mdi:ph");
-  phConsigneNumber.setPrecision(2);
   phConsigneNumber.setStep(0.05);
-  phConsigneNumber.setPrecisionMinMax(2);
-  phConsigneNumber.setMin(6.8);
+  phConsigneNumber.setMin(6.5);
   phConsigneNumber.setMax(7.8);
   phConsigneNumber.setUnitOfMeasurement("ph");
-  phConsigneNumber.onValueChanged(onValueConsignePhChanged);
+  phConsigneNumber.onCommand(onValueConsignePhChanged);
 
 
   poolProdElx.setName("Production Elx");
   poolProdElx.setIcon("mdi:electron-framework");
   poolProdElx.setStep(10);
-  poolProdElx.setPrecision(0);
   poolProdElx.setUnitOfMeasurement("%");
-  poolProdElx.onValueChanged(onValueProdElxChanged);
+  poolProdElx.onCommand(onValueProdElxChanged);
   
   boostFor2h.setName("Start Boost For 2H");
   boostFor2h.setIcon("mdi:alpha-b-box-outline");
-  boostFor2h.onStateChanged(onStateChangedBoost2H);
+  boostFor2h.onCommand(onStateChangedBoost2H);
 
   bluetoothConnected.setName("Bluetooth Status");
 
@@ -1007,7 +1097,7 @@ void setupHaIntegration(){
 
   volet.setName("Volet");
   volet.setIcon("mdi:window-shutter");
-  volet.onStateChanged(onStateChangedVolet);
+  volet.onCommand(onStateChangedVolet);
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
@@ -1018,7 +1108,7 @@ void setup() {
 
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
-
+  #define ARDUINOHA_DEBUG
   timeScheduler.init();
 
   timeScheduler.addTask(taskSetup);
@@ -1029,6 +1119,7 @@ void setup() {
 
 void loop() {
   //Serial.println("in the loop");
+  //syslog.log(LOG_INFO, "Begin loop");
   timeScheduler.execute();
 
 } // End of loop
