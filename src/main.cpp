@@ -35,7 +35,11 @@ Scheduler timeScheduler;
   Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, SYSLOG_DEVICE_HOSTNAME, SYSLOG_APP_NAME, LOG_KERN);
 #endif
 
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
 void setup_wifi();
+void reconnect_wifi();
 void setup_telnet();
 void setupHaIntegration();
 void cb_handleTelnet();
@@ -45,7 +49,7 @@ void cb_loopHaIntegration();
 void cb_loopAvaibilityMQTT();
 
 Task taskSetup(5000,TASK_FOREVER,&setup_wifi);
-
+Task taskReconnectWifi(interval,TASK_FOREVER,&reconnect_wifi);
 Task taskTelnet(5000,TASK_FOREVER,&cb_handleTelnet);
 Task taskBleSetupAndScan(30000, TASK_FOREVER, &cb_setupAndScan_ble);
 Task taskConnectBleServer(50000, TASK_FOREVER, &cb_connectBleServer);
@@ -212,6 +216,18 @@ void setup_telnet(){
 
 }
 
+void reconnect_wifi(){
+   unsigned long currentMillis = millis();
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    Serial.print(millis());
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }
+}
+
 void setup_wifi() {
     // Disable this task to avoid further iterations
     taskSetup.disable();
@@ -232,6 +248,11 @@ void setup_wifi() {
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
+
+    //Reconnect wifi Task
+    timeScheduler.addTask(taskReconnectWifi);
+    taskReconnectWifi.enable();
+    Serial.print("Add task to monitor and reconnect wifi");
 
     //Elegant OTA
     webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
