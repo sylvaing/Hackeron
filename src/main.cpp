@@ -224,6 +224,9 @@ void reconnect_wifi(){
     Serial.println("Reconnecting to WiFi...");
     WiFi.disconnect();
     WiFi.reconnect();
+    #ifdef SYSLOG_SERVER
+      syslog.log(LOG_INFO, "WIFI lost and reconnect automatically");
+    #endif
     previousMillis = currentMillis;
   }
 }
