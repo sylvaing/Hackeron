@@ -888,10 +888,10 @@ void cb_loopHaIntegration(){
   hackeronIp.setValue(WiFi.localIP().toString().c_str());
 
   //Fix pour les piques de mesures a ne pas prendre en compte
-  if ((hackeron.temp.Value <= 50) && (hackeron.temp.Value >= 0)){
+  if ((hackeron.temp.Value <= 50) && (hackeron.temp.Value > 0)){
     temp.setValue(hackeron.temp.Value,2);
   }
-  if ((hackeron.redox.Value <= 1000) && (hackeron.redox.Value >= 0)){
+  if ((hackeron.redox.Value <= 1000) && (hackeron.redox.Value > 0)){
     redox.setValue(hackeron.redox.Value,2);
   }
   if ((hackeron.ph.Value <= 9.5) && (hackeron.ph.Value >= 3.5)){
