@@ -1007,7 +1007,7 @@ void setupHaIntegration(){
   //HA integration
   deviceHA.setUniqueId(deviceUniqID, sizeof(deviceUniqID));
   deviceHA.setName("Hackeron");
-  deviceHA.setSoftwareVersion("2.0.0");
+  deviceHA.setSoftwareVersion("2.0.2");
   deviceHA.setModel("regul 4 RX");
   deviceHA.setManufacturer("Isynet");
   // This method enables availability for all device types registered on the device.
