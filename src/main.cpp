@@ -435,12 +435,19 @@ void extractTrameA(uint8_t ltrame[]){
   hackeron.alarmeElx = trame[12] & 0xF;
   hackeron.elx.Value = trame[2];
 
-  hackeron.DureeBoost = (uint8_t)byteToDouble(ltrame[2], ltrame[3]);
+  //hackeron.DureeBoost = (uint8_t)byteToDouble(ltrame[2], ltrame[3]);
+  hackeron.DureeBoost = byteToDouble(ltrame[2], ltrame[3]);
+
   if (hackeron.DureeBoost > 0 ){
     hackeron.BoostActif = true;
   }else{
     hackeron.BoostActif = false;
   }
+
+  telnet.println("extract Trame A");
+  telnet.print("duree boost : ");
+  telnet.print(hackeron.DureeBoost);
+  telnet.println("");
 
   hackeron.VoletActif = byteToBool(trame[10],4);
   hackeron.VoletForce = byteToBool(trame[10],3);
