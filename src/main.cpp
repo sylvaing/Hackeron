@@ -136,6 +136,8 @@ HASwitch volet("pool_volet");
 
 HABinarySensor bluetoothConnected("pool_bluetooth_connected");
 
+HASensor alarmText("pool_alarmText");
+
 
 
 struct Mesure {
@@ -945,6 +947,44 @@ void cb_loopHaIntegration(){
   voletForce.setState(hackeron.VoletForce);
   volet.setState(hackeron.VoletForce);
 
+  //set alarmText
+  switch (hackeron.alarme){
+          case 0:
+            alarmText.setValue("no error");
+            break;
+          case 10:
+            alarmText.setValue("E.10 erreur de lecture du PH");
+            break;
+          case 11:
+            alarmText.setValue("E.11 PH stagnant");
+            break;
+          case 13:
+            alarmText.setValue("E.13 PH bas");
+            break;
+          case 14:
+            alarmText.setValue("E.14 PH haut");
+            break;
+          case 15:
+            alarmText.setValue("E.15 PH correction inverse");
+            break;
+          case 18:
+            alarmText.setValue("E.18 temperature trop basse");
+            break;
+          case 19:
+            alarmText.setValue("E.19 salinite trop basse");
+            break;
+          case 20:
+            alarmText.setValue("E.20 redox trop haut");
+            break;
+          case 21:
+            alarmText.setValue("E.21 redox bas");
+            break;
+          case 22:
+            alarmText.setValue("E.22 redox vraiment trop bas");
+            break;
+   
+   }
+
 }
 
 void onValueConsigneRedoxChanged( HANumeric number, HANumber* sender){
@@ -1140,6 +1180,9 @@ void setupHaIntegration(){
   volet.setName("Volet");
   volet.setIcon("mdi:window-shutter");
   volet.onCommand(onStateChangedVolet);
+
+  alarmText.setName("Alarm Hackeron");
+  alarmText.setIcon("mdi:alpha-a-box-outline");
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
