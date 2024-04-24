@@ -22,7 +22,7 @@
 //ElegantOTA
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <ElegantOTA.h>
 
 #include <TaskScheduler.h>
 Scheduler timeScheduler;
@@ -47,10 +47,12 @@ void cb_setupAndScan_ble();
 void cb_connectBleServer();
 void cb_loopHaIntegration();
 void cb_loopAvaibilityMQTT();
+void cb_loopElegantOTA();
 
 Task taskSetup(5000,TASK_FOREVER,&setup_wifi);
 Task taskReconnectWifi(interval,TASK_FOREVER,&reconnect_wifi);
 Task taskTelnet(5000,TASK_FOREVER,&cb_handleTelnet);
+Task taskloopElegantOTA(5000,TASK_FOREVER,&cb_loopElegantOTA);
 Task taskBleSetupAndScan(30000, TASK_FOREVER, &cb_setupAndScan_ble);
 Task taskConnectBleServer(50000, TASK_FOREVER, &cb_connectBleServer);
 Task taskloopHaIntegration(5000, TASK_FOREVER,&cb_loopHaIntegration);
@@ -200,6 +202,9 @@ void cb_handleTelnet() {
   }
 }
 
+void cb_loopElegantOTA(){
+  ElegantOTA.loop();
+}
 
 void setup_telnet(){
 
@@ -262,9 +267,15 @@ void setup_wifi() {
     request->send(200, "text/plain", "Hi! I am ESP32 Hackeron to update use http://[yourIP]/update.");
     });
 
-    AsyncElegantOTA.begin(&webServer);    // Start ElegantOTA
+    ElegantOTA.begin(&webServer);    // Start ElegantOTA
     webServer.begin();
     Serial.println("HTTP server started");
+
+    //elegant OTA loop
+    timeScheduler.addTask(taskloopElegantOTA);
+    taskloopElegantOTA.enable();
+    Serial.print("Add task for loop of Elegant OTA");
+
 
     //telnet setup
     setup_telnet();
@@ -278,7 +289,7 @@ void setup_wifi() {
     //loop avaibility for mqtt
     timeScheduler.addTask(taskloopAvaibilityMQTT);
     taskloopAvaibilityMQTT.enable();
-    telnet.print("Add task to Handle telnet");
+    telnet.print("Add task for loop of MQTT");
 
     //ble setup
     #ifdef SYSLOG_SERVER
