@@ -6,7 +6,7 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 // Syslog server connection info
-#define SYSLOG_PORT 514
+#define SYSLOG_PORT 5140
 #define SYSLOG_DEVICE_HOSTNAME "hackeron"
 #define SYSLOG_APP_NAME "hackeron"
 
@@ -22,7 +22,7 @@
 //ElegantOTA
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <ElegantOTA.h>
 
 #include <TaskScheduler.h>
 Scheduler timeScheduler;
@@ -47,10 +47,12 @@ void cb_setupAndScan_ble();
 void cb_connectBleServer();
 void cb_loopHaIntegration();
 void cb_loopAvaibilityMQTT();
+void cb_loopElegantOTA();
 
 Task taskSetup(5000,TASK_FOREVER,&setup_wifi);
 Task taskReconnectWifi(interval,TASK_FOREVER,&reconnect_wifi);
 Task taskTelnet(5000,TASK_FOREVER,&cb_handleTelnet);
+Task taskloopElegantOTA(5000,TASK_FOREVER,&cb_loopElegantOTA);
 Task taskBleSetupAndScan(30000, TASK_FOREVER, &cb_setupAndScan_ble);
 Task taskConnectBleServer(50000, TASK_FOREVER, &cb_connectBleServer);
 Task taskloopHaIntegration(5000, TASK_FOREVER,&cb_loopHaIntegration);
@@ -134,6 +136,8 @@ HASwitch volet("pool_volet");
 
 HABinarySensor bluetoothConnected("pool_bluetooth_connected");
 
+HASensor alarmText("pool_alarmText");
+
 
 
 struct Mesure {
@@ -200,6 +204,9 @@ void cb_handleTelnet() {
   }
 }
 
+void cb_loopElegantOTA(){
+  ElegantOTA.loop();
+}
 
 void setup_telnet(){
 
@@ -262,9 +269,15 @@ void setup_wifi() {
     request->send(200, "text/plain", "Hi! I am ESP32 Hackeron to update use http://[yourIP]/update.");
     });
 
-    AsyncElegantOTA.begin(&webServer);    // Start ElegantOTA
+    ElegantOTA.begin(&webServer);    // Start ElegantOTA
     webServer.begin();
     Serial.println("HTTP server started");
+
+    //elegant OTA loop
+    timeScheduler.addTask(taskloopElegantOTA);
+    taskloopElegantOTA.enable();
+    Serial.print("Add task for loop of Elegant OTA");
+
 
     //telnet setup
     setup_telnet();
@@ -278,7 +291,7 @@ void setup_wifi() {
     //loop avaibility for mqtt
     timeScheduler.addTask(taskloopAvaibilityMQTT);
     taskloopAvaibilityMQTT.enable();
-    telnet.print("Add task to Handle telnet");
+    telnet.print("Add task for loop of MQTT");
 
     //ble setup
     #ifdef SYSLOG_SERVER
@@ -435,12 +448,19 @@ void extractTrameA(uint8_t ltrame[]){
   hackeron.alarmeElx = trame[12] & 0xF;
   hackeron.elx.Value = trame[2];
 
-  hackeron.DureeBoost = (uint8_t)byteToDouble(ltrame[2], ltrame[3]);
+  //hackeron.DureeBoost = (uint8_t)byteToDouble(ltrame[2], ltrame[3]);
+  hackeron.DureeBoost = byteToDouble(ltrame[2], ltrame[3]);
+
   if (hackeron.DureeBoost > 0 ){
     hackeron.BoostActif = true;
   }else{
     hackeron.BoostActif = false;
   }
+
+  telnet.println("extract Trame A");
+  telnet.print("duree boost : ");
+  telnet.print(hackeron.DureeBoost);
+  telnet.println("");
 
   hackeron.VoletActif = byteToBool(trame[10],4);
   hackeron.VoletForce = byteToBool(trame[10],3);
@@ -870,7 +890,8 @@ void cb_setupAndScan_ble() {
 
 void cb_loopAvaibilityMQTT(){
   mqtt.loop();
-  deviceHA.setAvailability(true);
+  //remove setAvaibility to use native check of Ha integration Shared availability
+  //deviceHA.setAvailability(true);
 
   //savoir si la connexion bluetooth est OK ou si le akeron n'est pas sous tension.
   bluetoothConnected.setState(connected);
@@ -881,13 +902,13 @@ void cb_loopHaIntegration(){
 
   taskloopHaIntegration.disable();
   mqtt.loop();
-
-  deviceHA.setAvailability(true);
+  //remove setAvaibility to use native check of Ha integration Shared availability
+  //deviceHA.setAvailability(true);
 
   wifiStrength.setValue(WiFi.RSSI());
   hackeronIp.setValue(WiFi.localIP().toString().c_str());
 
-  //Fix pour les piques de mesures a ne pas prendre en compte
+  //Fix pour les pics de mesures a ne pas prendre en compte
   if ((hackeron.temp.Value <= 50) && (hackeron.temp.Value > 0)){
     temp.setValue(hackeron.temp.Value,2);
   }
@@ -926,6 +947,44 @@ void cb_loopHaIntegration(){
   voletActif.setState(hackeron.VoletActif);
   voletForce.setState(hackeron.VoletForce);
   volet.setState(hackeron.VoletForce);
+
+  //set alarmText
+  switch (hackeron.alarme){
+          case 0:
+            alarmText.setValue("no error");
+            break;
+          case 10:
+            alarmText.setValue("E.10 erreur de lecture du PH");
+            break;
+          case 11:
+            alarmText.setValue("E.11 PH stagnant");
+            break;
+          case 13:
+            alarmText.setValue("E.13 PH bas");
+            break;
+          case 14:
+            alarmText.setValue("E.14 PH haut");
+            break;
+          case 15:
+            alarmText.setValue("E.15 PH correction inverse");
+            break;
+          case 18:
+            alarmText.setValue("E.18 temperature trop basse");
+            break;
+          case 19:
+            alarmText.setValue("E.19 salinite trop basse");
+            break;
+          case 20:
+            alarmText.setValue("E.20 redox trop haut");
+            break;
+          case 21:
+            alarmText.setValue("E.21 redox bas");
+            break;
+          case 22:
+            alarmText.setValue("E.22 redox vraiment trop bas");
+            break;
+   
+   }
 
 }
 
@@ -1007,7 +1066,7 @@ void setupHaIntegration(){
   //HA integration
   deviceHA.setUniqueId(deviceUniqID, sizeof(deviceUniqID));
   deviceHA.setName("Hackeron");
-  deviceHA.setSoftwareVersion("2.0.2");
+  deviceHA.setSoftwareVersion("2.1.0");
   deviceHA.setModel("regul 4 RX");
   deviceHA.setManufacturer("Isynet");
   // This method enables availability for all device types registered on the device.
@@ -1122,6 +1181,9 @@ void setupHaIntegration(){
   volet.setName("Volet");
   volet.setIcon("mdi:window-shutter");
   volet.onCommand(onStateChangedVolet);
+
+  alarmText.setName("Alarm Hackeron");
+  alarmText.setIcon("mdi:alpha-a-box-outline");
 
   mqtt.begin( BROKER_ADDR, BROKER_USERNAME, BROKER_PASSWORD );
 
