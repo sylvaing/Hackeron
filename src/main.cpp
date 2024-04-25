@@ -6,7 +6,7 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 // Syslog server connection info
-#define SYSLOG_PORT 514
+#define SYSLOG_PORT 5140
 #define SYSLOG_DEVICE_HOSTNAME "hackeron"
 #define SYSLOG_APP_NAME "hackeron"
 
@@ -890,7 +890,8 @@ void cb_setupAndScan_ble() {
 
 void cb_loopAvaibilityMQTT(){
   mqtt.loop();
-  deviceHA.setAvailability(true);
+  //remove setAvaibility to use native check of Ha integration Shared availability
+  //deviceHA.setAvailability(true);
 
   //savoir si la connexion bluetooth est OK ou si le akeron n'est pas sous tension.
   bluetoothConnected.setState(connected);
@@ -901,13 +902,13 @@ void cb_loopHaIntegration(){
 
   taskloopHaIntegration.disable();
   mqtt.loop();
-
-  deviceHA.setAvailability(true);
+  //remove setAvaibility to use native check of Ha integration Shared availability
+  //deviceHA.setAvailability(true);
 
   wifiStrength.setValue(WiFi.RSSI());
   hackeronIp.setValue(WiFi.localIP().toString().c_str());
 
-  //Fix pour les piques de mesures a ne pas prendre en compte
+  //Fix pour les pics de mesures a ne pas prendre en compte
   if ((hackeron.temp.Value <= 50) && (hackeron.temp.Value > 0)){
     temp.setValue(hackeron.temp.Value,2);
   }
