@@ -6,7 +6,7 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 // Syslog server connection info
-#define SYSLOG_PORT 5140
+#define SYSLOG_PORT 514
 #define SYSLOG_DEVICE_HOSTNAME "hackeron"
 #define SYSLOG_APP_NAME "hackeron"
 
@@ -983,8 +983,18 @@ void cb_loopHaIntegration(){
           case 22:
             alarmText.setValue("E.22 redox vraiment trop bas");
             break;
-   
+          default:
+            break;
    }
+  switch (hackeron.warning){
+  case 4:
+    // a déterminer...
+    alarmText.setValue("E.4 Alerte 2. Défaut de salinité ou de température d’eau");
+    break;
+  
+  default:
+    break;
+  }
 
 }
 
